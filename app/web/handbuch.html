@@ -188,7 +188,7 @@
         <li><a href="#was">Was ist PVE-UPS?</a></li>
         <li><a href="#voraussetzungen">Voraussetzungen</a></li>
         <li><a href="#installation">Installation &amp; Einrichtung</a></li>
-        <li><a href="#token">Proxmox API-Token</a></li>
+        <li><a href="#token">API-Token der Abschaltziele</a></li>
         <li><a href="#snmp">USV-Quellen</a></li>
         <li><a href="#logik">Funktion &amp; Logik</a></li>
         <li><a href="#failsafe">Fail-safe &amp; Sonderfälle</a></li>
@@ -203,9 +203,9 @@
     <main>
       <div class="card intro">
         <h1>PVE-UPS — Benutzerhandbuch</h1>
-        <p class="muted">Eine schlanke USV-Shutdown-Appliance für Proxmox VE: Sie überwacht
+        <p class="muted">Eine schlanke USV-Shutdown-Appliance für Proxmox VE und Proxmox Backup Server: Sie überwacht
         eine oder mehrere USVs — per SNMP oder über einen NUT-Server — und fährt bei
-        Stromausfall die zugeordneten Proxmox-Hosts geordnet herunter, ohne irgendwo von
+        Stromausfall die zugeordneten Abschaltziele geordnet herunter, ohne irgendwo von
         Hand gepflegte Konfigurationsdateien. Dieses Handbuch richtet sich an technisch
         versierte Administratoren, die das Produkt noch nicht kennen.</p>
       </div>
@@ -223,8 +223,8 @@
           <b>SNMP v1/v2c/v3</b>, reine Python-Implementierung) oder über einen
           <b>NUT-Server</b>, worüber USB- und seriell angeschlossene USVs gelesen
           werden.</li>
-          <li>Geordneter Shutdown der Hosts über ein <b>Proxmox API-Token</b> (Recht
-          <code>Sys.PowerMgmt</code>) — kein Root-SSH nötig.</li>
+          <li>Geordneter Shutdown über ein <b>Proxmox-VE- oder PBS-API-Token</b> (jeweiliges
+          Power-Recht) — kein Root-SSH nötig.</li>
           <li><b>Host↔USV-Zuordnung</b> mit Logik pro Host (UND/ODER) für redundante
           Netzteile bzw. aufgeteilte Last, inkl. Schaubild im Webinterface.</li>
           <li>Komplette Einrichtung über einen <b>Web-Wizard</b> mit Test-Buttons.</li>
@@ -254,8 +254,8 @@
             </ul>
           </li>
           <li>Netzwerkverbindung zwischen Appliance und USV-Quelle (Lesezugriff genügt:
-          UDP 161 bei SNMP, TCP 3493 bei NUT) sowie zur Proxmox-API der zu schützenden Hosts
-          (HTTPS, Port 8006).</li>
+          UDP 161 bei SNMP, TCP 3493 bei NUT) sowie zu den APIs der Abschaltziele (HTTPS,
+          normalerweise Port 8006 bei PVE und 8007 bei PBS).</li>
         </ul>
       </section>
 
@@ -274,7 +274,7 @@ curl -fsSL https://github.com/ffind-dev/pve-ups/releases/latest/download/install
           <li>UI-Passwort setzen.</li>
           <li><b>USVs</b> anlegen (Quelle, Adresse, Zugangsdaten — siehe Abschnitt 5) und je
           USV mit „USV testen" prüfen.</li>
-          <li><b>Proxmox-Hosts</b> eintragen (API-Token, siehe Abschnitt 4) und „Verbindung
+          <li><b>Abschaltziele</b> eintragen (API-Token, siehe Abschnitt 4) und „Verbindung
           testen". Festlegen, welche USVs einen Host versorgen und nach welcher Logik
           (UND/ODER).</li>
           <li><b>Schwellwerte</b> setzen bzw. die Standardwerte übernehmen.</li>
@@ -292,16 +292,29 @@ curl -fsSL https://github.com/ffind-dev/pve-ups/releases/latest/download/install
       </section>
 
       <section class="card" id="token">
-        <h2 class="sec"><span class="n">4</span> Proxmox API-Token anlegen (pro Host)</h2>
-        <p>Auf jedem Proxmox-Host einmalig einen dedizierten Benutzer mit ausschließlich dem
-        Power-Recht und einen API-Token erzeugen:</p>
+        <h2 class="sec"><span class="n">4</span> API-Token für Abschaltziele anlegen</h2>
+        <p>Für jedes Ziel einmalig einen dedizierten Benutzer und API-Token mit
+        ausschließlich dem nötigen Power-Recht erzeugen. Für Proxmox VE:</p>
 <pre><code>pveum user add ups@pve
 pveum role add UpsShutdown -privs "Sys.PowerMgmt"
 pveum acl modify /nodes -user ups@pve -role UpsShutdown
 pveum user token add ups@pve shutdown --privsep 0</code></pre>
         <p>Der letzte Befehl gibt <b>Token-ID</b> (<code>ups@pve!shutdown</code>) und
-        <b>Secret</b> aus. Beides im Wizard unter „Proxmox-Hosts" eintragen und mit „Test"
-        prüfen. Das Token ist jederzeit widerrufbar und ersetzt einen Root-SSH-Zugang.</p>
+        <b>Secret</b> aus. Beides bei Plattform „Proxmox VE“ im Wizard eintragen
+        (API-URL <code>https://&lt;host-ip&gt;:8006</code>) und mit „Test“ prüfen. Das Token
+        ist jederzeit widerrufbar und ersetzt einen Root-SSH-Zugang.</p>
+        <h3>Proxmox Backup Server</h3>
+        <p>Einen dedizierten PBS-Benutzer und API-Token anlegen und dem Token ausschließlich
+        <code>Sys.PowerManagement</code> auf <code>/system/status</code> geben. PBS verwendet
+        normalerweise <code>https://&lt;host-ip&gt;:8007</code> und den API-Node-Namen
+        <code>localhost</code>. Im Wizard die Plattform „Proxmox Backup Server“ wählen und
+        <code>localhost</code>, URL, Token-ID und Secret eintragen.
+        Die Token-ID hat weiterhin die Form <code>benutzer@realm!tokenname</code>, aber PBS
+        verlangt zur Authentisierung <code>PBSAPIToken=TOKENID:TOKENSECRET</code>; PVE-UPS
+        wählt dieses Format automatisch.</p>
+        <p>Mit der Abschaltreihenfolge Workload-Hosts vor PBS und PBS vor der Appliance
+        einordnen. Der aktuelle Client sendet den geordneten Shutdown-Befehl, prüft aber
+        noch keine laufenden Backup-Jobs und leert keine Queue.</p>
       </section>
 
       <section class="card" id="snmp">
@@ -525,10 +538,10 @@ curl -s http://&lt;container-ip&gt;:8080/api/status \
         sollte gesetzt werden, da der Container sonst in UTC läuft. Die
         <b>Selbsttest-Startzeit</b> gilt in dieser lokalen Zeit; nach dem Setzen der
         Zeitzone startet der Dienst kurz neu.</p>
-        <h3>Selbsttest der Proxmox-Verbindung</h3>
-        <p>Die Appliance prüft selbstständig je Host, ob API-Token und das Recht
-        <code>Sys.PowerMgmt</code> noch funktionieren — damit abgelaufene oder
-        zurückgezogene Zugangsdaten lange vor dem Ernstfall auffallen. Gesteuert wird das
+        <h3>Selbsttest der Abschaltziel-Verbindungen</h3>
+        <p>Die Appliance prüft selbstständig je Ziel, ob API-Token und Power-Recht noch
+        funktionieren — damit abgelaufene oder zurückgezogene Zugangsdaten lange vor dem
+        Ernstfall auffallen. Gesteuert wird das
         über zwei Einstellungen im Abschnitt <i>System</i>: eine <b>Startzeit</b> (volle
         Stunde) und ein <b>Intervall</b> von 15 Minuten bis 24 Stunden. Beide zusammen
         ergeben feste Tageszeiten: Startzeit 09:00 mit 6-Stunden-Intervall bedeutet 09:00,
@@ -578,7 +591,7 @@ volumes:
         up -d</code>) statt über den In-App-Uploader, und NTP/Zeitzone liegen in der
         Verantwortung des Docker-Hosts/Orchestrators statt über den Wizard gesetzt zu werden
         — beide Bereiche sind im Webinterface ausgeblendet. Alles Weitere (USV-Abfrage,
-        Proxmox-Shutdown, Schwellwerte, Webhook, Selbsttest) ist identisch.</p>
+        PVE/PBS-Shutdown, Schwellwerte, Webhook, Selbsttest) ist identisch.</p>
         <div class="callout info">
           <span><code>TZ</code> am Container setzen. Die <b>Selbsttest-Startzeit</b> gilt in
           der lokalen Zeit des Containers, und ohne <code>TZ</code> läuft der Container in
