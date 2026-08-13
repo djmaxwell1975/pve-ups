@@ -1,13 +1,13 @@
 # PVE-UPS
 
-**GUI-basierte USV-Shutdown-Appliance für Proxmox VE — mit Web-Wizard und ohne
+**GUI-basierte USV-Shutdown-Appliance für Proxmox VE und Proxmox Backup Server — mit Web-Wizard und ohne
 Konfigurationsdateien.**
 
 *English version: [README.md](README.md)*
 
 PVE-UPS überwacht eine oder mehrere USVs — **mit SNMP-Netzwerkkarte (Standard RFC 1628
 oder Hersteller-MIB wie APC PowerNet)** oder **über einen NUT-Server**, worüber USB- und
-seriell angeschlossene USVs gelesen werden — und fährt bei Stromausfall einen oder mehrere **Standalone-Proxmox-VE-Hosts**
+seriell angeschlossene USVs gelesen werden — und fährt bei Stromausfall einen oder mehrere **Proxmox-VE/PBS-Hosts**
 geordnet herunter. Der moderne Ersatz für herstellergebundene Appliances wie APC
 PowerChute Network Shutdown. Die komplette Einrichtung läuft über einen **Web-Wizard**;
 Monitoring gibt es als **REST/JSON**.
@@ -24,8 +24,8 @@ NUT als *Treiber*, statt es zu ersetzen:
   angelegt mit einem einzigen Befehl auf dem PVE-Host.
 - **Keine Konfigdateien** — ein Web-Wizard mit Test-Buttons für jeden Schritt;
   Einstellungen greifen sofort.
-- **Keine Agenten auf den Hosts** — der Shutdown läuft über die Proxmox-API mit einem
-  dedizierten, widerrufbaren **API-Token**, das nur das Recht `Sys.PowerMgmt` besitzt.
+- **Keine Agenten auf den Hosts** — der Shutdown läuft über die gewählte Proxmox-API mit
+  einem dedizierten, widerrufbaren **API-Token**, das nur das jeweilige Power-Recht besitzt.
   Nirgendwo Root-SSH.
 - **Herstellerneutral, aber nicht blauäugig** — die Standard-RFC-1628-UPS-MIB per
   SNMP v1/v2c/v3 (reine Python-Implementierung, kein net-snmp), mit automatischem Wechsel
@@ -119,15 +119,15 @@ privilegierten Begleitprozess (kein systemd) im Image gibt:
 > `{"bip":"10.210.0.1/24","default-address-pools":[{"base":"10.211.0.0/16","size":24}]}`,
 > danach `systemctl restart docker`.
 
-Alles Weitere (SNMP-Polling, Proxmox-Shutdown, Schwellwerte, Webhook, Selbsttest)
+Alles Weitere (SNMP-Polling, PVE/PBS-Shutdown, Schwellwerte, Webhook, Selbsttest)
 funktioniert identisch zur LXC-Bereitstellung. Die LXC-Installation (oben) bleibt der
 primäre, vollständig selbst-aktualisierende Weg.
 
-## Proxmox-Host anbinden (API-Token)
+## Proxmox-VE- oder PBS-Host anbinden (API-Token)
 
-Die Appliance fährt Hosts über die Proxmox-API herunter — kein Root-SSH, kein Agent auf
-dem Host. Jeder Host braucht einen dedizierten Benutzer mit **einem einzigen Recht**
-(`Sys.PowerMgmt`) und einen API-Token. Einmalig je Host in der Node-Shell (als root):
+Die Appliance fährt Ziele über die gewählte Proxmox-API herunter — kein Root-SSH und kein
+Agent auf dem Ziel. Im Wizard für jeden Eintrag **Proxmox VE** oder **Proxmox Backup
+Server** auswählen. Die bisherige PVE-Einrichtung lautet:
 
 ```bash
 # 1) Dedizierten Benutzer anlegen (PVE-Realm)
@@ -145,11 +145,24 @@ pveum user token add ups@pve shutdown --privsep 0
 
 Der letzte Befehl gibt die **Token-ID** (`ups@pve!shutdown`) und das **Secret** aus (eine
 UUID, wird nur dieses eine Mal angezeigt — jetzt kopieren). Beides im Wizard unter
-**Proxmox-Hosts** eintragen (API-URL ist `https://<host-ip>:8006`) und die Verbindung mit
+**Abschaltziele** eintragen (API-URL ist `https://<host-ip>:8006`) und die Verbindung mit
 **Test** prüfen.
 
 - **TLS prüfen** aus lassen, solange der Host das selbstsignierte Proxmox-Zertifikat nutzt.
 - Der Token ist jederzeit widerrufbar: `pveum user token remove ups@pve shutdown`.
+
+### Proxmox Backup Server
+
+Einen dedizierten PBS-Benutzer und API-Token anlegen und dem Token ausschließlich das
+Recht `Sys.PowerManagement` auf `/system/status` geben. PBS verwendet normalerweise
+`https://<host-ip>:8007` und den API-Node-Namen `localhost`. Im Wizard `localhost`, URL, Token-ID und Secret in einem Eintrag
+mit der Plattform **Proxmox Backup Server** hinterlegen. Die Token-ID hat ebenfalls die
+Form `benutzer@realm!tokenname`; die nötige PBS-Authentisierung
+`PBSAPIToken=TOKENID:TOKENSECRET` wird automatisch verwendet.
+
+Mit **Reihenfolge** zuerst Workload-Hosts, dann PBS und zuletzt den Appliance-Host
+eintragen. Diese Version prüft noch keine laufenden Backup-Jobs und leert keine Queue;
+für deren Abschluss muss die USV-Zeitreserve entsprechend groß sein.
 
 ## Funktionen
 
@@ -164,7 +177,7 @@ UUID, wird nur dieses eine Mal angezeigt — jetzt kopieren). Beides im Wizard u
   - **NUT-Server** (TCP 3493) als nur-lesender Client — für USVs ohne Netzwerkkarte.
     Funktioniert mit dem eingebauten USV-Server einer Synology/QNAP/TrueNAS, einem
     Raspberry Pi, OPNsense oder einem NUT auf einem Proxmox-Host.
-- **Web-Wizard** für USVs, Hosts, Schwellwerte und Benachrichtigungen — mit Test-Buttons;
+- **Web-Wizard** für USVs, PVE/PBS-Abschaltziele, Schwellwerte und Benachrichtigungen — mit Test-Buttons;
   der USV-Test schlüsselt sein Ergebnis je Objekt auf, sodass fehlende OID bzw.
   NUT-Variable, falsche Zugangsdaten und blockierter Port auf einen Blick unterscheidbar
   sind. Er benennt außerdem die Auslöser, die das Gerät gar nicht bedienen kann — so
@@ -177,7 +190,7 @@ UUID, wird nur dieses eine Mal angezeigt — jetzt kopieren). Beides im Wizard u
 - **REST-Status** (`/api/status`, `/api/health`) — lesend, ohne Auth, ohne Secrets;
   Ereignisprotokoll der letzten 48 h inklusive. Ereignis-/Webhook-Texte sind einheitlich
   englisch.
-- **Konfigurations-Export/-Import**, NTP/Zeitzone, regelmäßiger Proxmox-Selbsttest
+- **Konfigurations-Export/-Import**, NTP/Zeitzone, regelmäßiger PVE/PBS-Selbsttest
   (Startzeit plus Intervall von 15 min bis 24 h), In-Place-**Updates per Paket-Upload**
   im Webinterface.
 

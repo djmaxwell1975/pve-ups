@@ -683,7 +683,7 @@ class Engine:
         except Exception as exc:  # noqa: BLE001 - housekeeping must never affect the loop
             log.warning("Event log prune failed: %s", exc)
 
-    # -- scheduled self-test of the Proxmox API credentials -----------------
+    # -- scheduled self-test of shutdown target credentials ------------------
     async def _maybe_selftest(self) -> None:
         """Run the credential self-test once per scheduled slot (see selftest_slot())."""
         cfg = self.cfg
@@ -704,13 +704,13 @@ class Engine:
         if self.last_selftest_slot is not None and slot <= self.last_selftest_slot:
             return
         # Latch and persist *before* running: a crash halfway through the test must not
-        # turn into a restart loop that hammers the Proxmox API.
+        # turn into a restart loop that hammers a target API.
         self.last_selftest_slot = slot
         self._persist_state()
         await self._run_selftest()
 
     async def _run_selftest(self) -> None:
-        """Verify token + Sys.PowerMgmt per host. Success is logged quietly (no notify),
+        """Verify token + power-management privilege per target. Success is logged quietly (no notify),
         failure is emitted (notify) so a broken credential is noticed."""
         hosts = self.cfg.ordered_hosts()
         # Concurrently: sequentially, five unreachable hosts would stall the poll loop for
@@ -873,6 +873,7 @@ class Engine:
                 )
             hosts.append(
                 {
+                    "platform": h.platform.value,
                     "name": h.name,
                     "this_host": h.this_host,
                     "order": h.order,

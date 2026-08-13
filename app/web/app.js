@@ -601,6 +601,7 @@ function addHostRow(h, isNew, open) {
   el.innerHTML = `
     <summary class="cfg-head">${svgIcon("i-server")}<span class="cfg-title h_sum_name"></span><span class="cfg-sub h_sum_meta"></span></summary>
     <div class="row">
+      <label title="${esc(t("host.platformTitle"))}">${esc(t("host.platform"))} <select class="h_platform"><option value="pve">${esc(t("host.platformPve"))}</option><option value="pbs">${esc(t("host.platformPbs"))}</option></select></label>
       <label title="${esc(t("host.nodeTitle"))}">${esc(t("host.node"))} <input class="h_name" value="${esc(h.name || "")}" placeholder="pve01" /></label>
       <label title="${esc(t("host.apiurlTitle"))}">${esc(t("host.apiurl"))} <input class="h_url" value="${esc(h.api_url || "")}" placeholder="https://10.0.0.10:8006" /></label>
     </div>
@@ -624,6 +625,16 @@ function addHostRow(h, isNew, open) {
       <button class="btn-ghost btn-sm h_del" style="flex:0 0 auto">${esc(t("host.remove"))}</button>
       <span class="muted h_msg"></span>
     </div>`;
+  const platform = el.querySelector(".h_platform");
+  platform.value = h.platform || "pve";
+  const updatePlatformHints = () => {
+    const pbs = platform.value === "pbs";
+    el.querySelector(".h_name").placeholder = t(pbs ? "host.nodePhPbs" : "host.nodePhPve");
+    el.querySelector(".h_url").placeholder = t(pbs ? "host.apiurlPhPbs" : "host.apiurlPhPve");
+    el.querySelector(".h_token_id").placeholder = t(pbs ? "host.tokenIdPhPbs" : "host.tokenIdPhPve");
+  };
+  platform.onchange = updatePlatformHints;
+  updatePlatformHints();
   el.querySelector(".h_policy").value = h.ups_policy || "all";
   const updSum = () => {
     const nm = el.querySelector(".h_name").value.trim() || t("host.newName");
@@ -667,6 +678,7 @@ function renderHostUpsCheckboxes() {
 function hostFromRow(tr) {
   const secret = tr.querySelector(".h_token_secret").value;
   return {
+    platform: tr.querySelector(".h_platform").value,
     name: tr.querySelector(".h_name").value.trim(),
     api_url: tr.querySelector(".h_url").value.trim(),
     method: "api_token",

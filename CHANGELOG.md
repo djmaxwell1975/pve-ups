@@ -10,6 +10,13 @@ reads it dynamically. On every release: bump `__version__` **and** add a section
 
 ## [Unreleased]
 
+### Added
+- **Proxmox Backup Server shutdown targets.** Hosts now carry a platform discriminator;
+  existing entries remain Proxmox VE by default, while PBS uses its `PBSAPIToken` header,
+  `/system/status` permission scope and `Sys.PowerManagement` privilege. The target
+  client boundary is kept separate from the engine so a future SSH-managed Linux target
+  can join the same UPS policy and shutdown ordering.
+
 ## [3.3.0] - 2026-08-06
 
 ### Added
