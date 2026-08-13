@@ -178,9 +178,9 @@
       </div>
 
       <div class="card">
-        <div class="card-h"><h3><span class="section-num">2</span> <svg class="icon"><use href="#i-server"></use></svg> <span data-i18n="wiz.hosts">Proxmox hosts</span></h3>
-          <a class="doclink" href="/manual.html#token" data-manual="token" target="_blank" rel="noopener" title="Read in the manual: Creating the Proxmox API token" data-i18n-title="wiz.hostsDoc"><svg class="icon"><use href="#i-help"></use></svg></a></div>
-        <p class="help" data-i18n-html="wiz.hostsHelp">API token with the <code>Sys.PowerMgmt</code> privilege. The host marked <span class="lg-star">★</span>
+        <div class="card-h"><h3><span class="section-num">2</span> <svg class="icon"><use href="#i-server"></use></svg> <span data-i18n="wiz.hosts">Shutdown targets</span></h3>
+          <a class="doclink" href="/manual.html#token" data-manual="token" target="_blank" rel="noopener" title="Read in the manual: Configuring shutdown targets" data-i18n-title="wiz.hostsDoc"><svg class="icon"><use href="#i-help"></use></svg></a></div>
+        <p class="help" data-i18n-html="wiz.hostsHelp">Configure Proxmox VE or Proxmox Backup Server API targets. The host marked <span class="lg-star">★</span>
           “This host” (the appliance) is shut down last.</p>
         <div id="hostRows"></div>
         <div class="row" style="margin-top:12px;align-items:center">
@@ -211,7 +211,7 @@
         <div class="row">
           <label title="Polling interval on mains." data-i18n-title="th.pollNormalTitle"><span data-i18n="th.pollNormal">Poll interval mains (s)</span> <input id="th_poll_interval_normal_s" type="number" /></label>
           <label title="Polling interval while on battery." data-i18n-title="th.pollBatteryTitle"><span data-i18n="th.pollBattery">Poll interval battery (s)</span> <input id="th_poll_interval_battery_s" type="number" /></label>
-          <label title="Maximum time to wait for the Proxmox API per host." data-i18n-title="th.hostTimeoutTitle"><span data-i18n="th.hostTimeout">Host shutdown timeout (s)</span> <input id="th_host_shutdown_timeout_s" type="number" /></label>
+          <label title="Maximum time to wait for a target API per host." data-i18n-title="th.hostTimeoutTitle"><span data-i18n="th.hostTimeout">Host shutdown timeout (s)</span> <input id="th_host_shutdown_timeout_s" type="number" /></label>
         </div>
         <hr/>
         <label class="switch"
@@ -245,9 +245,9 @@
         </div>
         <p class="help" id="sysDockerNote" hidden data-i18n="sys.dockerNote">Time and timezone are controlled by the Docker host / orchestrator, not by this container.</p>
         <label class="switch"
-          title="Checks per host on a schedule whether the API token still works." data-i18n-title="sys.selftestTitle">
+          title="Checks each target on a schedule whether its API token still works." data-i18n-title="sys.selftestTitle">
           <input type="checkbox" id="selftest_enabled" />
-          <span data-i18n="sys.selftest">Automatic self-test of the Proxmox connection</span></label>
+          <span data-i18n="sys.selftest">Automatic self-test of target connections</span></label>
         <div class="row">
           <label title="Anchor of the schedule: full hour (0–23) at which the self-test starts." data-i18n-title="sys.selftestHourTitle"><span data-i18n="sys.selftestHour">Self-test start time (hour 0–23)</span> <input id="selftest_hour" type="number" min="0" max="23" /></label>
           <label title="How often the self-test repeats, anchored at the start time." data-i18n-title="sys.selftestIntervalTitle"><span data-i18n="sys.selftestInterval">Interval</span>
