@@ -1,7 +1,7 @@
 [project]
 name = "pve-usv"
 dynamic = ["version"]  # single source of truth: app/__init__.py __version__
-description = "PVE-UPS — UPS shutdown appliance for Proxmox VE: web-configured, no config files (SNMP via RFC 1628 or a vendor MIB, or a NUT server; multi-UPS, LXC)."
+description = "PVE-UPS — UPS shutdown appliance for Proxmox VE and PBS: web-configured, no config files (SNMP via RFC 1628 or a vendor MIB, or a NUT server; multi-UPS, LXC)."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
