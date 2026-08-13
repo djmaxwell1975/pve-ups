@@ -205,14 +205,27 @@ class ShutdownMethod(str, Enum):
     api_token = "api_token"
 
 
+class HostPlatform(str, Enum):
+    """API family used to control a shutdown target.
+
+    Keep this discriminator separate from ``ShutdownMethod``: PVE and PBS both use
+    an HTTP API today, while a future SSH-managed Linux target should be able to
+    join the host flow without changing the engine's ordering or UPS policy logic.
+    """
+
+    pve = "pve"
+    pbs = "pbs"
+
+
 class HostConfig(BaseModel):
-    name: str  # Proxmox node name, e.g. "pve01"
-    api_url: str  # e.g. "https://10.0.0.10:8006"
+    platform: HostPlatform = HostPlatform.pve
+    name: str  # target node name, e.g. "pve01" or "pbs"
+    api_url: str  # e.g. "https://10.0.0.10:8006" (PVE) / :8007 (PBS)
     method: ShutdownMethod = ShutdownMethod.api_token
-    # API token: user@realm!tokenid + secret
-    token_id: str = ""  # "ups@pve!shutdown"
+    # API token: user@realm!tokenid + secret. The platform selects the wire format.
+    token_id: str = ""  # e.g. "ups@pve!shutdown"
     token_secret: SecretStr = SecretStr("")
-    verify_tls: bool = False  # PVE ships self-signed certs by default
+    verify_tls: bool = False  # PVE/PBS ship self-signed certs by default
     this_host: bool = False  # the host carrying this appliance -> shut down last
     order: int = 0  # ascending; this_host is forced last regardless
     enabled: bool = True
@@ -282,8 +295,8 @@ class AppConfig(BaseModel):
     thresholds: Thresholds = Thresholds()
     notifications: Notifications = Notifications()
 
-    # Scheduled self-test: verify the Proxmox API token + Sys.PowerMgmt still work, so a
-    # broken/expired credential is caught long before a real outage needs it.
+    # Scheduled self-test: verify each shutdown target's API token and power privilege,
+    # so a broken/expired credential is caught long before a real outage needs it.
     selftest_enabled: bool = True
     selftest_hour: int = 9  # anchor: hour of day (0-23, server local time)
     selftest_interval_min: int = 1440  # repeat every N minutes from the anchor; 1440 = daily
