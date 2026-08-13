@@ -1,13 +1,13 @@
 # PVE-UPS
 
-**GUI-based UPS shutdown appliance for Proxmox VE — a NUT alternative with a web wizard
+**GUI-based UPS shutdown appliance for Proxmox VE and Proxmox Backup Server — a NUT alternative with a web wizard
 and no config files.**
 
 *Deutsche Fassung: [README.de.md](README.de.md)*
 
 PVE-UPS monitors one or more UPS devices — **with an SNMP network card (standard RFC 1628
 or a vendor MIB such as APC PowerNet)** or **through a NUT server**, which is how USB and
-serial UPS devices are read — and, on a power outage, shuts down one or more **standalone Proxmox VE hosts** in
+serial UPS devices are read — and, on a power outage, shuts down one or more **Proxmox VE/PBS hosts** in
 an orderly fashion. The modern replacement for vendor-locked appliances such as APC
 PowerChute Network Shutdown. Everything is configured through a **web wizard**; monitoring
 is available as **REST/JSON**.
@@ -24,7 +24,7 @@ rather than replacing it:
   single command on the PVE host.
 - **No config files** — a web wizard with test buttons for every step; settings apply live.
 - **No agents on the hosts** — shutdown goes through the Proxmox API using a dedicated,
-  revocable **API token** with only the `Sys.PowerMgmt` privilege. No root SSH anywhere.
+  revocable **API token** with only the platform's power-management privilege. No root SSH anywhere.
 - **Vendor-neutral, but not naive about vendors** — the standard RFC 1628 UPS MIB via
   SNMP v1/v2c/v3 (pure-Python, no net-snmp), automatically switching to a vendor MIB where
   the standard falls short (APC PowerNet), or any existing NUT server as a read-only client.
@@ -113,15 +113,15 @@ privileged companion process (no systemd) inside the image:
 > `{"bip":"10.210.0.1/24","default-address-pools":[{"base":"10.211.0.0/16","size":24}]}`,
 > then `systemctl restart docker`.
 
-Everything else (SNMP polling, Proxmox shutdown, thresholds, webhook, self-test) works
+Everything else (SNMP polling, PVE/PBS shutdown, thresholds, webhook, self-test) works
 identically to the LXC deployment. The LXC install (above) remains the primary, fully
 self-updating path.
 
-## Connecting a Proxmox host (API token)
+## Connecting a Proxmox VE or PBS host (API token)
 
-The appliance shuts hosts down through the Proxmox API — no root SSH, no agent on the
-host. Each host needs a dedicated user with a **single privilege** (`Sys.PowerMgmt`) and
-an API token. Run once per host in the node shell (as root):
+The appliance shuts targets down through the selected Proxmox API — no root SSH and no
+agent on the target. Select **Proxmox VE** or **Proxmox Backup Server** for each entry in
+the wizard. The existing PVE setup is:
 
 ```bash
 # 1) dedicated user (PVE realm)
@@ -138,11 +138,26 @@ pveum user token add ups@pve shutdown --privsep 0
 ```
 
 The last command prints the **token ID** (`ups@pve!shutdown`) and the **secret** (a UUID,
-shown only this once — copy it now). Enter both in the wizard under **Proxmox hosts**
+shown only this once — copy it now). Enter both in the wizard under **Shutdown targets**
 (API URL is `https://<host-ip>:8006`) and check the connection with **Test**.
 
 - Leave **Verify TLS** off as long as the host uses Proxmox's self-signed certificate.
 - The token is revocable at any time: `pveum user token remove ups@pve shutdown`.
+
+### Proxmox Backup Server
+
+Create a dedicated PBS user and API token, then grant the token only the
+`Sys.PowerManagement` privilege at `/system/status`. PBS normally listens on
+`https://<host-ip>:8007` and its API node name is normally `localhost`. Enter
+`localhost`, the PBS URL, token ID and secret in a wizard
+entry whose platform is **Proxmox Backup Server**. PBS tokens use the same
+`user@realm!tokenname` identifier shape, but the client uses PBS's required
+`PBSAPIToken=TOKENID:TOKENSECRET` authorization format automatically.
+
+Use the existing **Order** field to put workload nodes before PBS, and PBS before the
+appliance host. This release sends the orderly node shutdown command; it does not yet
+inspect or drain active backup jobs, so leave enough time in the UPS policy for those
+jobs to finish.
 
 ## Features
 
@@ -156,7 +171,7 @@ shown only this once — copy it now). Enter both in the wizard under **Proxmox 
   - **NUT server** (TCP 3493) as a read-only client — for UPS devices without a network
     card. Works with the UPS server built into a Synology/QNAP/TrueNAS NAS, a Raspberry
     Pi, OPNsense, or a NUT install on a Proxmox host.
-- **Web wizard** for UPS devices, hosts, thresholds and notifications — with test buttons;
+- **Web wizard** for UPS devices, PVE/PBS shutdown targets, thresholds and notifications — with test buttons;
   the UPS test breaks its result down per object, so a missing OID or NUT variable, wrong
   credentials and a blocked port are told apart at a glance. It also names the trigger
   conditions the device cannot feed at all, so no threshold is left silently dead.
@@ -166,7 +181,7 @@ shown only this once — copy it now). Enter both in the wizard under **Proxmox 
 - **Webhook notifications** (HTTP POST with subject/body/status JSON) on notable events.
 - **REST status** (`/api/status`, `/api/health`) — read-only, no auth, no secrets;
   event log of the last 48 h included. Event/webhook texts are uniformly English.
-- **Config export/import**, NTP/timezone setup, scheduled Proxmox connectivity self-test
+- **Config export/import**, NTP/timezone setup, scheduled PVE/PBS connectivity self-test
   (start time plus an interval from 15 min to 24 h), in-place **updates via package
   upload** in the web UI.
 
