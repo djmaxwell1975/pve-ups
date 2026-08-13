@@ -366,7 +366,7 @@ def _merge_config(incoming: dict, existing: AppConfig) -> AppConfig:
         _reconcile_ups_secrets(ups_entry, existing_ups.get(ups_entry.get("id")))
     data.pop("snmp", None)  # legacy key never accepted from the form
 
-    # Host token secrets matched by node name
+    # Host token secrets matched by target name
     existing_hosts = {h.name: h for h in existing.hosts}
     for host in data.get("hosts", []):
         old = existing_hosts.get(host.get("name"))
@@ -510,7 +510,7 @@ async def api_test_snmp(incoming: dict):
 @app.post("/api/test/host", dependencies=[Depends(require_auth)])
 async def api_test_host(incoming: dict):
     assert engine is not None
-    # Reconcile this single host's secret against the stored one (by name).
+    # Reconcile this single target's secret against the stored one (by name).
     existing_hosts = {h.name: h for h in engine.cfg.hosts}
     old = existing_hosts.get(incoming.get("name"))
     old_secret = old.token_secret.get_secret_value() if old else ""
